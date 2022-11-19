@@ -1,8 +1,6 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from datetime import date
-from xmlrpc.client import boolean
 from pretty_html_table import build_table
 import pandas as pd
 import config
@@ -65,14 +63,3 @@ def send(departures: pd.DataFrame, returns: pd.DataFrame, depart_date: str, retu
             retries += 1
 
     return
-
-if __name__ == "__main__":
-    logs = None
-    with open("output-Fri-Dec-25-Fri-Jan-6.log", "r") as f:
-        logs = f.readlines()
-
-    html = "".join(l for l in logs)
-
-    print(logs)
-    print()
-    print(html)

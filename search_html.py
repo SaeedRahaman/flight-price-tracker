@@ -1,8 +1,9 @@
 from bs4 import BeautifulSoup
 import pandas as pd
-from locale import atof
+import logging
+from typing import Tuple
 
-def find_detail(soup, element, element_id, length):
+def find_detail(soup: str, element: str, element_id: Tuple[str, None], length: int) -> list:
     l = []
 
     # price info is wrapped in <ins> tags with no id attributes
@@ -40,7 +41,7 @@ def find_detail(soup, element, element_id, length):
     return l
 
 
-def find_flight_info_helper(flight_info, key, soup, element, element_id, num_flights, l):
+def find_flight_info_helper(flight_info: dict, key: str, soup: str, element: str, element_id: Tuple[str, None], num_flights: int, l: logging.Logger) -> dict:
 
     try:
         flight_info[key] = find_detail(soup, element, element_id, num_flights)
@@ -51,20 +52,20 @@ def find_flight_info_helper(flight_info, key, soup, element, element_id, num_fli
     return flight_info
 
 
-def write_html(html, filename):
+def write_html(html: str, filename: str) -> None:
     soup = BeautifulSoup(html, "html.parser")
 
     with open(filename, "w") as f:
         f.write(soup.prettify())
     return
 
-def print_dict(d):
+def print_dict(d: dict) -> None:
     for key, val in d.items():
         print(key, val, len(val))
     print()
     return
 
-def find_flight_info(soup, l):
+def find_flight_info(soup: str, l: logging.Logger) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     soup = BeautifulSoup(soup, "html.parser")
 

@@ -6,3 +6,8 @@ chromedriver
 *.csv
 *.html
 *.log
+
+bin/
+lib/
+.Python
+pyvenv.cfg
