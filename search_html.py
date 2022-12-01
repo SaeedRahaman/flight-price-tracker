@@ -91,9 +91,11 @@ def find_flight_info(soup: str, l: logging.Logger) -> Tuple[pd.DataFrame, pd.Dat
 
     flights = pd.DataFrame(flight_info)
     # print(flights.to_string(index=False))
-    # print()
+    
+    # only keep non stop flights
+    flights = flights.loc[flights["Stops"] == "Nonstop"].copy()
 
-    lowest_fare = flights.loc[ (flights["Stops"] == "Nonstop") & (flights["Price"] == flights["Price"].min()) ]
+    lowest_fare = flights.loc[flights["Price"] == flights["Price"].min()]
     lowest_fare = lowest_fare.loc[flights["Duration"] == lowest_fare["Duration"].min()]
     # print(lowest_fare)
 
