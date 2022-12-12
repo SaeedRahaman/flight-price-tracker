@@ -6,6 +6,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
+from time import sleep
 
 from datetime import datetime
 import argparse
@@ -26,48 +27,37 @@ def search_flights(l: l.Logger, departure: str, destination: str, depart_date: s
 
     s = Service("./chromedriver")
     driver = webdriver.Chrome(service=s)
-    # driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=browser_options)
-
     driver.set_window_size(1920, 1080)
+
     driver.get(url)
 
-     # accept all cookies
+    # accept all cookies
     WebDriverWait(driver,10).until(EC.frame_to_be_available_and_switch_to_it((By.CLASS_NAME, 'truste_popframe')))
     WebDriverWait(driver,10).until(EC.element_to_be_clickable((By.XPATH,"/html/body/div[8]/div[1]/div/div[3]/a[1]"))).click()
-
-    # grab html data for departing flights
-    try: 
-        # select Blue tier
-        WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="auto-fare-code-1"]'))).click()
-
-    except Exception as e:
-        l.error("could not select non stop flights")
-        return pd.DataFrame(), pd.DataFrame()
     
     l.info("getting departing flights")
+    sleep(20)
 
     try:
         html = driver.page_source
         write_html(html, "departure.html")
         departures, lowest_index = find_flight_info(html, l)
 
-        jb = driver.find_elements(By.TAG_NAME, "jb-flight-detail-item")
-        jb[lowest_index].click()
-    
-    except Exception as e:
-        l.error(f"could not find departing flight information for selected date \n{e}")
-        return pd.DataFrame(), pd.DataFrame()
+        xpath = f" /html/body/jb-app/div/jb-fares/div[3]/div[1]/div/div[1]/div/jb-flight-details/div[2]/div[2]/jb-flight-detail-item[{lowest_index}]/div[1]/div/jb-itinerary-panel/div/div/div/div/div/div[3]/div/jb-fare-class-card/div/div/jb-offer-block/button"
 
-    # get return flights
-    try:
-        # click on best flight
-        WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, f'//*[@id="auto-depart-time-{lowest_index}"]'))).click()
-    
+        # click on button
+        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
+
+        # click on fare type
+        fare_xpath = f"/html/body/jb-app/div/jb-fares/div[3]/div[1]/div/div[1]/div/jb-flight-details/div[2]/div[2]/jb-flight-detail-item[{lowest_index}]/div[1]/div/jb-itinerary-panel/jb-expandable-container/div/jb-expandable-section/div/jb-fare-type-tiles-panel/div/div[2]/jb-fare-type-tile/div/div[1]"
+        WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, fare_xpath))).click()
+
     except Exception as e:
-        l.error("could not click to get return flights")
+        l.error(f"could not click on departing flight selection \n{e}")
         return pd.DataFrame(), pd.DataFrame()
 
     l.info("getting return flights")
+    sleep(10)
 
     try:
         html = driver.page_source
@@ -89,7 +79,7 @@ def flight(depart_code: str, return_code: str, depart_date: str, return_date: st
     filename = f"output-{depart_date}-{return_date}.log"
     l.basicConfig(filename=filename, level=l.INFO, filemode="w")
 
-    MAX_RETRIES = 5  
+    MAX_RETRIES = 1
     retries = 0
     l.info(f"running at time = {datetime.now()}")
     l.info(f"depart date = {depart_date} and return date = {return_date}")

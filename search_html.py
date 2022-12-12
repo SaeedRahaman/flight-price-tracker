@@ -6,16 +6,19 @@ from typing import Tuple
 def find_detail(soup: str, element: str, element_id: Tuple[str, None], length: int) -> list:
     l = []
 
-    # price info is wrapped in <ins> tags with no id attributes
-    if element == "ins":
+    # price info is wrapped in <span> tags with no id attributes
+    if element_id == None:
         info = soup.find_all(element)
         for tag in info:
+            
             tag = tag.text
-            tag = tag.replace('\n', '')
-            tag = tag.replace(',', '')
             tag = tag.strip()
 
-            l.append(tag)
+            try:
+                tag = int(tag)
+                l.append(tag)
+            except Exception as e:
+                pass
         
         return l
 
@@ -59,13 +62,13 @@ def write_html(html: str, filename: str) -> None:
         f.write(soup.prettify())
     return
 
-def print_dict(d: dict) -> None:
+def print_dict(d: dict, l: logging.Logger) -> None:
     for key, val in d.items():
-        print(key, val, len(val))
-    print()
+        l.info(f"{key}, {val}, {len(val)}")
+    l.info("\n")
     return
 
-def find_flight_info(soup: str, l: logging.Logger) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def find_flight_info(soup: BeautifulSoup, l: logging.Logger) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     soup = BeautifulSoup(soup, "html.parser")
 
@@ -78,25 +81,41 @@ def find_flight_info(soup: str, l: logging.Logger) -> Tuple[pd.DataFrame, pd.Dat
     flight_info = find_flight_info_helper(flight_info, "Arrival Time", soup, "div", "auto-arrival-time", num_flights, l)
     flight_info = find_flight_info_helper(flight_info, "Arrival City", soup, "div", "auto-arrive-to", num_flights, l)
     flight_info = find_flight_info_helper(flight_info, "Duration", soup, "div", "auto-flight-duration", num_flights, l)
-    flight_info = find_flight_info_helper(flight_info, "Flight Number", soup, "div", "auto-flight-number", num_flights, l)
     flight_info = find_flight_info_helper(flight_info, "Stops", soup, "span", "auto-flight-stops", num_flights, l)
-    flight_info = find_flight_info_helper(flight_info, "Price", soup, "ins", None, num_flights, l)
-    flight_info = find_flight_info_helper(flight_info, "Tier", soup, "div", "auto-flight-fare-code", num_flights, l)
+    flight_info = find_flight_info_helper(flight_info, "Price", soup, "label", None, num_flights, l)
 
-    # remove $ sign and convert strings to int
-    for i, f in enumerate(flight_info["Price"]):
-        flight_info["Price"][i] = int(f[1:])
+    # this scenario happens on return flights
+    # ignore the first value in other arrays
+    if len(flight_info["Price"]) != len(flight_info["Depart Time"]):
+        for key, value in flight_info.items():
+            if key != "Price":
+                flight_info[key] = value[1:]
 
-    # print_dict(flight_info)
+    # print_dict(flight_info, l)
+
+    # flight prices are on basic tier
+    # add 30$ to price to simulate blue tier
+    # blue tier is worth the extra cost for value
+    flight_info["Price"] = [price + 30 for price in flight_info["Price"]]
+
+    # print_dict(flight_info, l)
 
     flights = pd.DataFrame(flight_info)
     # print(flights.to_string(index=False))
-    
+
     # only keep non stop flights
     flights = flights.loc[flights["Stops"] == "Nonstop"].copy()
 
     lowest_fare = flights.loc[flights["Price"] == flights["Price"].min()]
     lowest_fare = lowest_fare.loc[flights["Duration"] == lowest_fare["Duration"].min()]
-    # print(lowest_fare)
 
     return flights, lowest_fare.index[0]
+
+if __name__ == "__main__":
+    with open("returns.html", "r") as f:
+        html = f.read()
+        logging.basicConfig(filename="test.log", level=logging.INFO, filemode="w")
+        departures, index = find_flight_info(html, logging)
+
+        departures.to_csv("depatures.csv", index=False)
+        print(f"index = {index}")
