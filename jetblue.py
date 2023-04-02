@@ -15,8 +15,6 @@ import logging as l
 
 from search_html import find_flight_info, write_html
 from send_email import send
-from save_data import save_csv
-import config
 
 from selenium.webdriver.remote.remote_connection import LOGGER
 LOGGER.setLevel(l.WARNING)
@@ -25,8 +23,10 @@ def search_flights(l: l.Logger, departure: str, destination: str, depart_date: s
 
     url = f"https://www.jetblue.com/booking/flights?from={departure}&to={destination}&depart={depart_date}&return={return_date}&isMultiCity=false&noOfRoute=1&lang=en&adults=1&children=0&infants=0&sharedMarket=false&roundTripFaresFlag=false&usePoints=false"
 
-    s = Service("./chromedriver")
-    driver = webdriver.Chrome(service=s)
+    browser_options = Options()
+    browser_options.binary_location = './chrome-linux/chrome'
+    s = Service("./chromedriver_linux64/chromedriver")
+    driver = webdriver.Chrome(service=s, options=browser_options)
     driver.set_window_size(1920, 1080)
 
     driver.get(url)
@@ -42,8 +42,11 @@ def search_flights(l: l.Logger, departure: str, destination: str, depart_date: s
         html = driver.page_source
         write_html(html, "departure.html")
         departures, lowest_index = find_flight_info(html, l)
+        
+        # fix lowest_index for indexing on xpath
+        lowest_index += 1
 
-        xpath = f" /html/body/jb-app/div/jb-fares/div[3]/div[1]/div/div[1]/div/jb-flight-details/div[2]/div[2]/jb-flight-detail-item[{lowest_index}]/div[1]/div/jb-itinerary-panel/div/div/div/div/div/div[3]/div/jb-fare-class-card/div/div/jb-offer-block/button"
+        xpath = f"/html/body/jb-app/div/jb-fares/div[3]/div[1]/div/div[1]/div/jb-flight-details/div[2]/div[2]/jb-flight-detail-item[{lowest_index}]/div[1]/div/jb-itinerary-panel/div/div/div/div/div/div[3]/div/jb-fare-class-card/div/div/jb-offer-block/button/jb-offer-block-value/div/div"
 
         # click on button
         WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
@@ -74,6 +77,12 @@ def search_flights(l: l.Logger, departure: str, destination: str, depart_date: s
     return departures, returns
 
 
+def save_csv(csv: pd.DataFrame, date: str, filename: str) -> None:
+    csv['Date'] = date
+    csv.to_csv(filename, index=False)
+    return
+
+
 def flight(depart_code: str, return_code: str, depart_date: str, return_date: str) -> bool:
     # set logging config
     filename = f"output-{depart_date}-{return_date}.log"
@@ -92,12 +101,12 @@ def flight(depart_code: str, return_code: str, depart_date: str, return_date: st
 
         # check that flight data was received
         if len(departures) > 0 and len(returns) > 0:
-            save_csv(departures, depart_date, "departures.csv")
-            save_csv(returns, return_date, "returns.csv")
+            save_csv(departures, depart_date, "test_departures.csv")
+            save_csv(returns, return_date, "test_returns.csv")
             l.info("data saved")
 
-            l.info("Sending Email...")
-            send(departures, returns, depart_date, return_date, filename)
+            # l.info("Sending Email...")
+            # send(departures, returns, depart_date, return_date, filename)
             return True
         
         else:
